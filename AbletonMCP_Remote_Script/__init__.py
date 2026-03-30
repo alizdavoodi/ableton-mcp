@@ -267,6 +267,10 @@ class AbletonMCP(ControlSurface):
                 track_index = params.get("track_index", 0)
                 device_index = params.get("device_index", 0)
                 response["result"] = self._get_device_parameters(track_index, device_index)
+            elif command_type == "diagnose_device":
+                track_index = params.get("track_index", 0)
+                device_index = params.get("device_index", 0)
+                response["result"] = self._diagnose_device(track_index, device_index)
             # Scene queries
             elif command_type == "get_all_scenes":
                 response["result"] = self._get_all_scenes()
@@ -2127,6 +2131,74 @@ class AbletonMCP(ControlSurface):
             return result
         except Exception as e:
             self.log_message("Error deleting clip: " + str(e))
+            raise
+
+    def _diagnose_device(self, track_index, device_index):
+        """Deep diagnostic of a device — lists all attributes and properties."""
+        try:
+            track = self._song.tracks[track_index]
+            device = track.devices[device_index]
+
+            # Gather all accessible attributes
+            attrs = {}
+            for attr_name in ['name', 'class_name', 'class_display_name', 'type',
+                              'is_active', 'can_have_chains', 'can_have_drum_pads',
+                              'has_macro_mappings', 'latency_in_ms', 'latency_in_samples']:
+                try:
+                    val = getattr(device, attr_name, 'NOT_FOUND')
+                    attrs[attr_name] = str(val)
+                except Exception as e:
+                    attrs[attr_name] = "ERROR: {0}".format(str(e))
+
+            # List ALL dir() entries that might reveal hidden parameter access
+            all_members = []
+            for member in dir(device):
+                if not member.startswith('_'):
+                    try:
+                        val = getattr(device, member)
+                        member_type = type(val).__name__
+                        all_members.append({"name": member, "type": member_type})
+                    except Exception:
+                        all_members.append({"name": member, "type": "ERROR"})
+
+            # Check parameters
+            param_list = []
+            for i, p in enumerate(device.parameters):
+                param_list.append({
+                    "index": i,
+                    "name": p.name,
+                    "original_name": getattr(p, 'original_name', 'N/A'),
+                    "value": p.value,
+                    "min": p.min,
+                    "max": p.max,
+                    "is_enabled": p.is_enabled,
+                    "is_quantized": p.is_quantized,
+                    "state": str(getattr(p, 'state', 'N/A')),
+                    "automation_state": str(getattr(p, 'automation_state', 'N/A')),
+                })
+
+            # Check if device has chains (racks)
+            chains_info = None
+            if device.can_have_chains:
+                chains_info = []
+                for ci, chain in enumerate(device.chains):
+                    chains_info.append({
+                        "index": ci,
+                        "name": chain.name,
+                        "device_count": len(chain.devices),
+                    })
+
+            return {
+                "track_index": track_index,
+                "device_index": device_index,
+                "attributes": attrs,
+                "all_members": all_members,
+                "parameter_count": len(param_list),
+                "parameters": param_list,
+                "chains": chains_info,
+            }
+        except Exception as e:
+            self.log_message("Error in diagnose_device: {0}".format(str(e)))
             raise
 
     def _get_device_parameters(self, track_index, device_index):
