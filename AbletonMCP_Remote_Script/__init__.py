@@ -2142,6 +2142,19 @@ class AbletonMCP(ControlSurface):
 
             device = track.devices[device_index]
 
+            # Log extra device info for debugging plugin parameter access
+            self.log_message(
+                "Device debug: name={0}, class_name={1}, "
+                "class_display_name={2}, type={3}, "
+                "param_count={4}".format(
+                    device.name,
+                    device.class_name,
+                    getattr(device, 'class_display_name', 'N/A'),
+                    getattr(device, 'type', 'N/A'),
+                    len(device.parameters),
+                )
+            )
+
             parameters = []
             for i, param in enumerate(device.parameters):
                 param_info = {
@@ -2175,6 +2188,7 @@ class AbletonMCP(ControlSurface):
                 "device_index": device_index,
                 "device_name": device.name,
                 "device_class": device.class_name,
+                "device_class_display": getattr(device, 'class_display_name', 'N/A'),
                 "is_plugin": is_plugin,
                 "parameter_count": len(parameters),
                 "parameters": parameters,
@@ -4724,17 +4738,16 @@ class AbletonMCP(ControlSurface):
             # Check if this is a browser with root categories
             if hasattr(browser_or_item, 'instruments'):
                 # Check all main categories
+                category_names = [
+                    'instruments', 'sounds', 'drums',
+                    'audio_effects', 'midi_effects',
+                    'plugins', 'samples', 'clips',
+                    'packs', 'user_library',
+                ]
                 categories = [
-                    browser_or_item.instruments,
-                    browser_or_item.sounds,
-                    browser_or_item.drums,
-                    browser_or_item.audio_effects,
-                    browser_or_item.midi_effects,
-                    browser_or_item.plugins,
-                    browser_or_item.samples,
-                    browser_or_item.clips,
-                    browser_or_item.packs,
-                    browser_or_item.user_library,
+                    getattr(browser_or_item, name)
+                    for name in category_names
+                    if hasattr(browser_or_item, name)
                 ]
                 
                 for category in categories:
