@@ -1815,15 +1815,18 @@ class AbletonMCP(ControlSurface):
                     "clip": clip_info
                 })
             
-            # Get devices
+            # Get devices (include parameter count so agents know to query further)
             devices = []
             for device_index, device in enumerate(track.devices):
-                devices.append({
+                device_info = {
                     "index": device_index,
                     "name": device.name,
                     "class_name": device.class_name,
-                    "type": self._get_device_type(device)
-                })
+                    "type": self._get_device_type(device),
+                    "is_active": device.is_active,
+                    "parameter_count": len(device.parameters),
+                }
+                devices.append(device_info)
             
             result = {
                 "index": track_index,
