@@ -4729,7 +4729,12 @@ class AbletonMCP(ControlSurface):
                     browser_or_item.sounds,
                     browser_or_item.drums,
                     browser_or_item.audio_effects,
-                    browser_or_item.midi_effects
+                    browser_or_item.midi_effects,
+                    browser_or_item.plugins,
+                    browser_or_item.samples,
+                    browser_or_item.clips,
+                    browser_or_item.packs,
+                    browser_or_item.user_library,
                 ]
                 
                 for category in categories:
