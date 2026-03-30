@@ -2157,14 +2157,30 @@ class AbletonMCP(ControlSurface):
                     param_info["value_items"] = list(param.value_items) if hasattr(param, 'value_items') else []
                 parameters.append(param_info)
 
+            is_plugin = device.class_name in ("PluginDevice", "AuPluginDevice")
+            hint = None
+            if is_plugin and len(parameters) <= 1:
+                hint = (
+                    "This VST3/AU plugin has very few configured parameters. "
+                    "In Ableton, click the device title bar, then click the "
+                    "Configure button (wrench icon). While in Configure mode, "
+                    "click/move the parameters you want to control in the "
+                    "plugin window. They will then appear in this list. "
+                    "You can also right-click the device title bar and select "
+                    "'Configure' to enter this mode."
+                )
+
             result = {
                 "track_index": track_index,
                 "device_index": device_index,
                 "device_name": device.name,
                 "device_class": device.class_name,
+                "is_plugin": is_plugin,
                 "parameter_count": len(parameters),
-                "parameters": parameters
+                "parameters": parameters,
             }
+            if hint:
+                result["hint"] = hint
             return result
         except Exception as e:
             self.log_message("Error getting device parameters: " + str(e))
