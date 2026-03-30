@@ -10,10 +10,12 @@ from dataclasses import dataclass, field
 from contextlib import asynccontextmanager
 from typing import AsyncIterator, Dict, Any, List, Union, Optional
 
-# Configure logging
-logging.basicConfig(level=logging.INFO,
+# Configure logging (respect LOG_LEVEL env var for subprocess quieting)
+_log_level = getattr(logging, os.environ.get("LOG_LEVEL", "INFO").upper(), logging.INFO)
+logging.basicConfig(level=_log_level,
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("AbletonMCPServer")
+logger.setLevel(_log_level)
 
 # Configurable timeouts via environment variables
 MCP_RECV_TIMEOUT = float(os.environ.get("MCP_RECV_TIMEOUT", "15.0"))
