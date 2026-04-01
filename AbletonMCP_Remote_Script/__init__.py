@@ -729,6 +729,11 @@ class AbletonMCP(ControlSurface):
                             result = self._start_playback()
                         elif command_type == "stop_playback":
                             result = self._stop_playback()
+                        elif command_type == "search_and_load":
+                            track_index = params.get("track_index", 0)
+                            query = params.get("query", "")
+                            cat = params.get("category", "all")
+                            result = self._search_and_load(track_index, query, cat)
                         elif command_type == "load_instrument_or_effect":
                             track_index = params.get("track_index", 0)
                             uri = params.get("uri", "")
@@ -1702,6 +1707,83 @@ class AbletonMCP(ControlSurface):
             }
         except Exception as e:
             self.log_message("Error searching browser: " + str(e))
+            raise
+
+    def _search_and_load(self, track_index, query, category="all"):
+        """Search browser for a device and load the first loadable match onto a track.
+
+        This avoids the URI resolution problem by keeping the BrowserItem
+        reference from search and calling browser.load_item() directly.
+        """
+        try:
+            track = self._validate_track_index(track_index)
+            app = self.application()
+            browser = app.browser
+
+            query_lower = query.lower()
+
+            categories_to_search = []
+            if category == "all":
+                categories_to_search = [
+                    ("instruments", browser.instruments),
+                    ("sounds", browser.sounds),
+                    ("drums", browser.drums),
+                    ("audio_effects", browser.audio_effects),
+                    ("midi_effects", browser.midi_effects),
+                ]
+                # Also search user_library and plugins if available
+                if hasattr(browser, 'user_library'):
+                    categories_to_search.append(("user_library", browser.user_library))
+                if hasattr(browser, 'plugins'):
+                    categories_to_search.append(("plugins", browser.plugins))
+            elif category == "instruments":
+                categories_to_search = [("instruments", browser.instruments)]
+            elif category == "user_library" and hasattr(browser, 'user_library'):
+                categories_to_search = [("user_library", browser.user_library)]
+            else:
+                categories_to_search = [("instruments", browser.instruments)]
+
+            found_item = [None]  # mutable container for closure
+
+            def search_recursive(item, depth=0):
+                if depth > 6 or found_item[0]:
+                    return
+                if hasattr(item, 'name') and query_lower in item.name.lower():
+                    is_loadable = item.is_loadable if hasattr(item, 'is_loadable') else False
+                    if is_loadable:
+                        found_item[0] = item
+                        return
+                if hasattr(item, 'children') and (item.is_folder if hasattr(item, 'is_folder') else True):
+                    for child in item.children:
+                        search_recursive(child, depth + 1)
+                        if found_item[0]:
+                            return
+
+            for cat_name, cat_item in categories_to_search:
+                if hasattr(cat_item, 'children'):
+                    for child in cat_item.children:
+                        search_recursive(child)
+                        if found_item[0]:
+                            break
+                if found_item[0]:
+                    break
+
+            if not found_item[0]:
+                return {"error": "No loadable item matching '{0}' found in browser".format(query)}
+
+            item = found_item[0]
+            self._song.view.selected_track = track
+            browser.load_item(item)
+
+            return {
+                "loaded": True,
+                "item_name": item.name,
+                "track_index": track_index,
+                "track_name": track.name,
+                "uri": item.uri if hasattr(item, 'uri') else None
+            }
+        except Exception as e:
+            self.log_message("Error in search_and_load: " + str(e))
             raise
 
     def _load_instrument_or_effect(self, track_index, uri):

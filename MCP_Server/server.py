@@ -2276,6 +2276,32 @@ def search_browser(ctx: Context, query: str, category: str = "all") -> str:
         return f"Error searching browser: {str(e)}"
 
 @mcp.tool()
+def search_and_load(ctx: Context, track_index: int, query: str, category: str = "all") -> str:
+    """
+    Search the browser for a device by name and load the first loadable match onto a track.
+    This is the most reliable way to load devices — it searches and loads in one step,
+    avoiding URI resolution issues.
+
+    Parameters:
+    - track_index: The index of the track to load the item onto
+    - query: Search term (e.g. "PluginBridge", "Wavetable", "EQ Eight")
+    - category: Browser category to search ("all", "instruments", "user_library")
+    """
+    try:
+        ableton = get_ableton_connection()
+        result = ableton.send_command("search_and_load", {
+            "track_index": track_index,
+            "query": query,
+            "category": category
+        })
+        if "error" in result:
+            return f"Error: {result.get('error')}"
+        return f"Loaded '{result.get('item_name')}' on track '{result.get('track_name')}' (index {track_index})"
+    except Exception as e:
+        logger.error(f"Error in search_and_load: {str(e)}")
+        return f"Error in search_and_load: {str(e)}"
+
+@mcp.tool()
 def load_item_to_track(ctx: Context, track_index: int, uri: str) -> str:
     """
     Load a browser item (instrument or effect) onto a track by URI.
